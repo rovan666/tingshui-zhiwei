@@ -5,6 +5,30 @@
 
 ---
 
+## 2026-11-19（晚，第二次会话）· CFAR + 分类 + 流水线（流水线待调试）
+
+**做了什么**
+- CFAR 检测 `src/detect/cfar.py`（✅ 已验证）：**沿频率**做 CA-CFAR（沿时间做会把持续目标吸收进背景，已踩坑修正）；告警合并 merge_gap=0.15s。蒙特卡洛结果：SNR -8dB 起检测率 100%，虚警率 0；Pd 曲线见 `figures/day3/cfar_pd_pfa.png`，场景检出图 `cfar_scene.png`
+- 智能分类 `src/classify/`（✅ 已验证）：纯 numpy log-Mel 特征 + sklearn MLP(128)，四类 ship/human/fish/noise，测试准确率 **96.2%**；图 `figures/day3/classify_confusion.png`、`classify_logmel.png`；模型存 `models/mlp_classifier.pkl`
+- 多类声源仿真器 `sim/sources.py`：ship=低频线谱+螺旋桨调制，human=宽带拍水脉冲，fish=高频咔哒（幅值 0.6、10–18 次，调过一轮才和 noise 分开）
+- 流水线 `run_pipeline.py`（⚠️ **未通过**：8 秒三事件场景，CFAR 返回 0 告警，待调试）
+
+**流水线 0 告警的排查线索（下次第一件事）**
+- 最可疑：船舶线谱 150/300/450 Hz **低于 CFAR 的 f_range 下限 500 Hz**，直接被滤掉；human/fish 事件在 4 通道平均后幅度被稀释 + 持续时间短于 min_frames
+- 建议：f_range 下限降到 100 Hz；mono 改用单通道而非四通道平均（非相干平均抵消窄带信号）；min_frames 适当调小或按事件类型自适应
+- torch 安装失败（网络断线），分类用 sklearn 实现，与 CNN 接口兼容可后换
+
+**环境变化**：已 pip 安装 scikit-learn（torch 失败未装）
+
+**下次从哪开始**
+1. 修流水线（按上面线索），跑出"【告警】时间|方位|类型|置信度"完整输出
+2. 更新 algorithm-framework.md 勾选 detect/classify/pipeline 完成项
+3. 数据接口规范文档、BOM 比价、可视化（Streamlit）
+
+**user 待办仍未反馈**：中期检查日期/模板、指导老师对船载平台的意见、SolidWorks 安装结果
+
+---
+
 ## 2026-11-19（晚）· MUSIC 超分辨算法完成 + CBF 对比图
 
 **做了什么**
