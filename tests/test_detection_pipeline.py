@@ -13,17 +13,59 @@ class DetectionPipelineTests(unittest.TestCase):
     def test_add_source_writes_late_event_at_requested_time(self):
         """晚于源信号时长的事件也必须真实写入目标时间窗。"""
         n = int(6.0 * FS)
-        x_all = np.zeros((4, n))
         rng = np.random.default_rng(3)
+        background = 0.5 * rng.standard_normal((4, n))
+        x_all = background.copy()
         sig = fish(duration=1.0, rng=rng)
         start = int(4.0 * FS)
 
         add_source(x_all, sig, bearing_deg=120.0, t0=4.0, snr_db=0.0, rng=rng)
 
-        written = x_all[:, start:start + len(sig)]
-        self.assertGreater(float(np.std(written)), 0.5)
-        self.assertEqual(int(np.count_nonzero(x_all[:, :start])), 0)
-        self.assertEqual(int(np.count_nonzero(x_all[:, start + len(sig):])), 0)
+        written = x_all[:, start:start + len(sig)] - background[:, start:start + len(sig)]
+        self.assertGreater(float(np.std(written)), 0.1)
+        np.testing.assert_array_equal(x_all[:, :start], background[:, :start])
+        np.testing.assert_array_equal(x_all[:, start + len(sig):],
+                                      background[:, start + len(sig):])
+
+    def test_add_source_matches_requested_snr(self):
+        """正负荷标称 SNR 都必须等于实际加入的信号/背景功率比。"""
+        for snr_db in (-6.0, 0.0, 6.0):
+            with self.subTest(snr_db=snr_db):
+                rng = np.random.default_rng(5)
+                n = int(3.0 * FS)
+                background = 0.5 * rng.standard_normal((4, n))
+                x_all = background.copy()
+                sig = fish(duration=1.0, rng=rng)
+                start = int(FS)
+
+                add_source(x_all, sig, 120.0, 1.0, snr_db, rng)
+
+                sl = slice(start, start + len(sig))
+                added_power = np.mean((x_all[:, sl] - background[:, sl]) ** 2)
+                noise_power = np.mean(background[:, sl] ** 2)
+                actual_snr_db = 10 * np.log10(added_power / noise_power)
+                self.assertAlmostEqual(actual_snr_db, snr_db, delta=0.05)
+
+    def test_cfar_exposes_detection_margin_and_frame_hits(self):
+        """检测输出使用统一裕量及原始帧命中，不冒充 SNR 估计。"""
+        rng = np.random.default_rng(8)
+        n = int(4.0 * FS)
+        t = np.arange(n) / FS
+        x = 0.5 * rng.standard_normal(n)
+        mask = (t >= 1.5) & (t <= 2.5)
+        x[mask] += 0.3 * np.sin(2 * np.pi * 10_000.0 * t[mask])
+
+        alarms, dbg = cfar_detect(x, FS, pfa=1e-2)
+
+        self.assertTrue(alarms)
+        self.assertIn("detection_stat_db", alarms[0])
+        self.assertNotIn("snr_est", alarms[0])
+        self.assertIn("frame_hit", dbg)
+        self.assertEqual(dbg["th_db"], 0.0)
+        self.assertIn("pfa_spectral", dbg)
+        self.assertIn("pfa_energy", dbg)
+        self.assertEqual(dbg["pfa_spectral"], 0.005)
+        self.assertEqual(dbg["pfa_energy"], 0.005)
 
     def test_cfar_detects_low_frequency_line_at_band_edge(self):
         """300 Hz 弱线谱不能因参考窗触及低频边界而漏检。"""

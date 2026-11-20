@@ -10,7 +10,7 @@
    │  x: (4, N) 时域波形, fs=96000 Hz
    ▼
 [detect] CFAR 检测 ──无异常──▶ 继续监听
-   │ 有异常 → AlarmEvent{t_start, t_end, snr_est}
+   │ 有异常 → AlarmEvent{t_start, t_end, detection_stat_db}
    ▼
 [doa] 方位估计（CBF / MUSIC）
    │  → bearing_deg, spectrum(方位谱), confidence
@@ -48,9 +48,10 @@
 ### detect —— CFAR 异常检测（✅ 已完成，仿真验证）
 - 文件：`src/detect/cfar.py`
 - 接口：`cfar_detect(x, fs, frame_len=1024, hop=512, pfa=1e-2) -> (alarms, debug)`
-- 原理：频率向谱线 CFAR + 时间向宽带能量 CFAR 双通道；低频边缘使用单侧参考窗，门限随背景自适应
-- 验收图：检测统计量+门限图；检测率/虚警率随 SNR 变化曲线（当前每个 SNR 蒙特卡洛 40 次）
-- `AlarmEvent = dict(t_start, t_end, snr_est)`（字段写入数据接口规范）
+- 原理：频率向谱线 CFAR + 时间向宽带能量 CFAR 双通道，各占 `pfa/2`；低频边缘使用单侧参考窗，门限随背景自适应
+- 验收图：归一化检测裕量+0 dB 门限；分别报告检测率、场景级虚警概率、帧级虚警率与虚警次数/小时（当前每个 SNR 蒙特卡洛 40 次）
+- 校准状态：当前实测帧级虚警率高于标称值，标称 `pfa` 只代表设计预算，不作为实测性能
+- `AlarmEvent = dict(t_start, t_end, detection_stat_db)`（字段写入数据接口规范）
 
 ### doa —— 方位估计（✅ 已完成）
 - 文件：`src/doa/cbf.py`、`src/doa/music.py`
@@ -78,8 +79,8 @@
 ### pipeline —— 主控串联（✅ 已完成，仿真验证）
 - 文件：`run_pipeline.py`
 - 逻辑：参考通道 CFAR 检测 → 告警定长分析窗 → 四通道 CBF → MLP 分类 → 输出告警
-- 终端输出格式：`【告警】1.01s–3.00s | 方位 61.4° | 类型 ship | 置信度 1.00`
-- 回归：`python -m unittest discover -s tests -v` 当前 5 项全部通过
+- 终端输出示例：`【告警】1.01s–3.00s | 方位 60.9° | 类型 ship | 置信度 1.00`（置信度为未校准 softmax 分数）
+- 回归：`python -m unittest discover -s tests -v` 当前 7 项全部通过
 
 ## 4. 答辩图清单（每张图对应一个脚本，完成即打勾）
 

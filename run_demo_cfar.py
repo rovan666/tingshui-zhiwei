@@ -43,46 +43,64 @@ def main() -> None:
     t, x = make_scene(-6.0, True, rng)
     alarms, dbg = cfar_detect(x, FS, pfa=1e-2)
     fig, ax = plt.subplots(figsize=(10, 4.5))
-    ax.plot(dbg["t"], dbg["stat"], lw=0.8, label="Detection statistic (max bin power ratio)")
-    ax.axhline(dbg["th_db"], color="r", lw=1.4,
-               label=f"CFAR threshold ({dbg['th_db']:.1f} dB)")
+    ax.plot(dbg["t"], dbg["stat"], lw=0.8,
+            label="Spectral CFAR normalized detection margin")
+    ax.axhline(dbg["th_db"], color="r", lw=1.4, label="Decision threshold (0 dB)")
     ax.axvspan(1.5, 2.5, color="green", alpha=0.12, label="Target present (10 kHz, SNR -6 dB)")
-    ax.set(xlabel="Time (s)", ylabel="Ratio (dB)")
+    ax.set(xlabel="Time (s)", ylabel="Margin (dB)")
     ax.grid(alpha=0.3)
     ax.legend()
-    fig.suptitle("CA-CFAR detection (simulated)")
+    fig.suptitle("Spectral CFAR detection margin (simulated)")
     fig.tight_layout()
     p1 = os.path.join(OUT_DIR, "cfar_scene.png")
     fig.savefig(p1, dpi=150)
     plt.close(fig)
     print(f"场景检出告警数：{len(alarms)}")
     for a in alarms:
-        print(f"  告警 {a['t_start']:.2f}s–{a['t_end']:.2f}s  估计SNR {a['snr_est']:.1f} dB")
+        print(f"  告警 {a['t_start']:.2f}s–{a['t_end']:.2f}s  "
+              f"频谱检测裕量 {a['detection_stat_db']:.1f} dB")
 
-    # 实验 2：检测率/虚警率 vs SNR（蒙特卡洛）
+    # 实验 2：检测率与三种虚警口径；无目标场景与有目标场景分开统计。
     snrs = [-15, -12, -10, -8, -6, -3]
-    pds, pfas = [], []
+    pds, scene_pfas, frame_pfas = [], [], []
     trials = 40
+    scene_duration = 4.0
     for snr in snrs:
-        det, fa = 0, 0
+        det, scene_fa = 0, 0
+        false_frames, total_frames, false_alarms = 0, 0, 0
         for _ in range(trials):
             _, x1 = make_scene(snr, True, rng)
             a1, _ = cfar_detect(x1, FS, pfa=1e-2)
             det += int(any(a["t_start"] < 2.6 and a["t_end"] > 1.4 for a in a1))
             _, x0 = make_scene(snr, False, rng)
-            a0, _ = cfar_detect(x0, FS, pfa=1e-2)
-            fa += int(len(a0) > 0)
+            a0, d0 = cfar_detect(x0, FS, pfa=1e-2)
+            scene_fa += int(len(a0) > 0)
+            false_alarms += len(a0)
+            false_frames += int(np.count_nonzero(d0["frame_hit"]))
+            total_frames += len(d0["frame_hit"])
         pds.append(det / trials)
-        pfas.append(fa / trials)
-        print(f"SNR {snr:+3d} dB | 检测率 {det/trials:.2f} | 虚警率 {fa/trials:.2f}")
+        scene_pfas.append(scene_fa / trials)
+        frame_pfas.append(false_frames / total_frames)
+        alarms_per_hour = false_alarms / (trials * scene_duration) * 3600.0
+        print(f"SNR {snr:+3d} dB | 检测率 {det/trials:.2f} | "
+              f"场景级虚警概率 {scene_fa/trials:.2f} | "
+              f"帧级虚警率 {false_frames/total_frames:.5f} | "
+              f"虚警 {alarms_per_hour:.1f} 次/小时")
 
-    fig, ax = plt.subplots(figsize=(8, 4.5))
-    ax.plot(snrs, pds, "o-", label="Probability of detection")
-    ax.plot(snrs, pfas, "s--", label="False alarm rate (no-target scenes)")
-    ax.axhline(0.01, color="r", ls=":", alpha=0.6, label="Design Pfa = 0.01")
-    ax.set(xlabel="SNR (dB)", ylabel="Probability", ylim=(-0.03, 1.05))
-    ax.grid(alpha=0.3)
-    ax.legend()
+    fig, axes = plt.subplots(1, 2, figsize=(12, 4.5))
+    axes[0].plot(snrs, pds, "o-", label="Probability of detection")
+    axes[0].plot(snrs, scene_pfas, "s--", label="Scene false-alarm probability")
+    axes[0].set(xlabel="SNR (dB)", ylabel="Probability", ylim=(-0.03, 1.05),
+                title="Event and scene level")
+    axes[1].plot(snrs, frame_pfas, "o-", color="tab:purple",
+                 label="Measured frame false-alarm rate")
+    axes[1].axhline(0.01, color="r", ls=":", alpha=0.6,
+                    label="Design frame Pfa = 0.01")
+    axes[1].set(xlabel="SNR (dB)", ylabel="Frame false-alarm rate",
+                title="Frame level")
+    for ax in axes:
+        ax.grid(alpha=0.3)
+        ax.legend()
     fig.suptitle(f"CFAR performance, Monte Carlo x{trials} (simulated)")
     fig.tight_layout()
     p2 = os.path.join(OUT_DIR, "cfar_pd_pfa.png")

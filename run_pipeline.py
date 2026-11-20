@@ -30,7 +30,7 @@ EVENTS = [
 
 
 def add_source(x_all, sig, bearing_deg, t0, snr_db, rng):
-    """把单通道源信号按方位角加入四通道阵列（频域分数时延）。"""
+    """加入分数时延声源，SNR 定义为加入信号与当前背景的功率比。"""
     n = len(sig)
     pos = element_positions(R)
     u = np.array([np.cos(np.deg2rad(bearing_deg)), np.sin(np.deg2rad(bearing_deg))])
@@ -38,10 +38,13 @@ def add_source(x_all, sig, bearing_deg, t0, snr_db, rng):
     freqs = np.fft.rfftfreq(n, 1 / FS)
     S = np.fft.rfft(sig)
     start = int(t0 * FS)
-    scale = np.sqrt(np.mean(sig ** 2) / (10 ** (snr_db / 10.0)))
+    target = slice(start, start + n)
+    snr_lin = 10 ** (snr_db / 10.0)
     for i in range(4):
         delayed = np.fft.irfft(S * np.exp(-1j * 2 * np.pi * freqs * taus[i]), n=n)
-        x_all[i, start:start + n] += scale * delayed
+        background_power = np.mean(x_all[i, target] ** 2)
+        scale = np.sqrt(background_power * snr_lin / (np.mean(delayed ** 2) + 1e-20))
+        x_all[i, target] += scale * delayed
 
 
 def select_doa_band(X, freqs, f_min=80.0, f_max=24_000.0, half_width=1500.0):

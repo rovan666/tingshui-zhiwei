@@ -7,9 +7,10 @@
 为什么不沿时间做 CFAR：持续型目标（如持续的舰船线谱）会被时间参考窗
 "吸收"进背景，导致检不出；沿频率做则不受目标持续时间影响。
 
-虚警率分配：帧级虚警率 pfa，F 个参与检测的频点，
-单频点虚警率 pfa_cell = pfa / F（独立近似）。
+虚警率分配：频谱与能量通道各占帧级预算 pfa/2；频谱通道有 F 个频点，
+单频点预算 pfa_cell = (pfa/2) / F，按并集上界分配，不假设频点相互独立。
 门限系数 α = N·(pfa_cell^(-1/N) - 1)，N 为参考频点数。
+该公式仍采用平方律单元服从指数分布的 CA-CFAR 近似，实际虚警率需实验校准。
 """
 import numpy as np
 
@@ -63,15 +64,18 @@ def cfar_detect(x_mono: np.ndarray, fs: float, frame_len: int = 1024,
     谱线因另一侧窗口越界而被直接跳过。至少连续 min_frames 帧才形成告警。
 
     返回 (alarms, debug)：
-        alarms: list[dict]，含 t_start/t_end/snr_est（秒、dB）
-        debug:  dict(t, stat, th_db)，stat 为每帧最大频点功率比（dB）
+        alarms: list[dict]，含 t_start/t_end/detection_stat_db（秒、dB）
+        debug:  dict(t, stat, th_db, frame_hit)；stat 为归一化检测裕量，
+                统一以 0 dB 为判决门限，frame_hit 为成形告警前的原始帧命中。
     """
     P, freqs, t = stft_power(x_mono, frame_len, hop, fs)
     band = (freqs >= f_range[0]) & (freqs <= f_range[1])
     Pb = P[band, :]                                  # (Fb, T)
     Fb, T = Pb.shape
 
-    pfa_cell = pfa / Fb
+    pfa_spectral = pfa / 2
+    pfa_energy = pfa / 2
+    pfa_cell = pfa_spectral / Fb
 
     # 沿频率估计背景；边缘频点保留可用的单侧参考窗，跳过 guard。
     C = np.concatenate([np.zeros((1, T)), np.cumsum(Pb, axis=0)], axis=0)
@@ -89,11 +93,12 @@ def cfar_detect(x_mono: np.ndarray, fs: float, frame_len: int = 1024,
         ratio = Pb / bg
         ratio[~np.isfinite(ratio)] = 0.0
     hit = (ratio > alpha[:, None]) & valid[:, None]
-    stat = 10 * np.log10(np.where(valid[:, None], ratio, 0.0).max(axis=0) + 1e-20)
+    margin = np.where(valid[:, None], ratio / alpha[:, None], 0.0)
+    stat = 10 * np.log10(margin.max(axis=0) + 1e-20)
 
     frame_hit = hit.any(axis=0)
-    # 宽带能量通道（虚警率预算对半分）
-    e_hit, _ = _energy_cfar_hits(Pb, pfa / 2)
+    # 两个通道各使用一半帧级虚警率预算，按并集上界控制总预算。
+    e_hit, _ = _energy_cfar_hits(Pb, pfa_energy)
     frame_hit = frame_hit | e_hit
     alarms = []
     i = 0
@@ -105,7 +110,7 @@ def cfar_detect(x_mono: np.ndarray, fs: float, frame_len: int = 1024,
             if j - i + 1 >= min_frames:
                 alarms.append(dict(
                     t_start=float(t[i]), t_end=float(t[j]),
-                    snr_est=float(np.max(stat[i:j + 1])),
+                    detection_stat_db=float(np.max(stat[i:j + 1])),
                 ))
             i = j + 1
         else:
@@ -116,8 +121,8 @@ def cfar_detect(x_mono: np.ndarray, fs: float, frame_len: int = 1024,
         if merged and a["t_start"] - merged[-1]["t_end"] <= merge_gap:
             m = merged[-1]
             m["t_end"] = a["t_end"]
-            m["snr_est"] = max(m["snr_est"], a["snr_est"])
+            m["detection_stat_db"] = max(m["detection_stat_db"], a["detection_stat_db"])
         else:
             merged.append(dict(a))
-    nominal_alpha = (2 * ref) * (pfa_cell ** (-1.0 / (2 * ref)) - 1.0)
-    return merged, dict(t=t, stat=stat, th_db=10 * np.log10(nominal_alpha))
+    return merged, dict(t=t, stat=stat, th_db=0.0, frame_hit=frame_hit.copy(),
+                        pfa_spectral=pfa_spectral, pfa_energy=pfa_energy)
