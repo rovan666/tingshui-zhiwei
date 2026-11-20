@@ -93,6 +93,18 @@ class DetectionPipelineTests(unittest.TestCase):
 
         self.assertTrue(any(a["t_start"] < 2.5 and a["t_end"] > 1.0 for a in alarms))
 
+    def test_cfar_white_noise_frame_pfa_stays_within_budget(self):
+        """白噪声下原始帧虚警率不应超过双通道总预算 0.01。"""
+        false_frames, total_frames = 0, 0
+        for seed in range(2000, 2040):
+            x = np.random.default_rng(seed).standard_normal(int(4.0 * FS))
+            _, dbg = cfar_detect(x, FS, pfa=1e-2)
+            false_frames += int(np.count_nonzero(dbg["frame_hit"]))
+            total_frames += len(dbg["frame_hit"])
+
+        measured_pfa = false_frames / total_frames
+        self.assertLess(measured_pfa, 0.01)
+
     def test_doa_band_uses_mean_channel_power(self):
         """选频应按频率轴比较功率，反相通道也不能互相抵消。"""
         try:

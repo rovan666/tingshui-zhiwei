@@ -17,11 +17,14 @@ import numpy as np
 
 def stft_power(x_mono: np.ndarray, frame_len: int = 256, hop: int = 128,
                fs: float = 96_000.0):
-    """返回 (功率谱 (F,T), 频率轴 (F,), 帧中心时间秒 (T,))。"""
+    """用矩形窗分帧，返回 (功率谱 (F,T), 频率轴 (F,), 帧中心时间秒 (T,))。
+
+    白噪声经矩形窗正交 FFT 后各频点相互独立，符合当前 CA-CFAR 的
+    指数分布参考单元假设；Hann 窗会引入相邻频点相关，使实测虚警率偏高。
+    """
     n = len(x_mono)
-    win = np.hanning(frame_len)
     starts = np.arange(0, n - frame_len + 1, hop)
-    segs = np.stack([x_mono[s:s + frame_len] * win for s in starts], axis=1)
+    segs = np.stack([x_mono[s:s + frame_len] for s in starts], axis=1)
     F = np.fft.rfft(segs, axis=0)
     P = np.abs(F) ** 2 / (frame_len ** 2)
     freqs = np.fft.rfftfreq(frame_len, 1 / fs)
