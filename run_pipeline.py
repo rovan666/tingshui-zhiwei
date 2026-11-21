@@ -92,7 +92,7 @@ def main() -> None:
         label, prob = __import__("src.classify.mlp", fromlist=["classify"]) \
             .classify(seg[0], clf)
         print(f"【告警】{a['t_start']:5.2f}s–{a['t_end']:5.2f}s | "
-              f"方位 {est:6.1f}° | 类型 {label:6s} | 置信度 {prob:.2f}")
+              f"方位 {est:6.1f}° | 类型 {label:6s} | 模型得分 {prob:.2f}")
     print("\n真实事件对照：")
     for ev in EVENTS:
         print(f"  {ev['t0']}–{ev['t1']}s | {ev['cls']:6s} | 方位 {ev['bearing']}°")
