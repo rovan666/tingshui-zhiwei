@@ -5,6 +5,23 @@
 
 ---
 
+## 2026-11-21（代码公开）· GitHub 仓库、中文导读与讲解稿已上线
+
+- 公开仓库：https://github.com/rovan666/tingshui-zhiwei （账号 `rovan666`，公开策略，主分支 `main`）。
+- 重写根目录 `README.md`：加入公开演示、界面截图、环境要求、克隆与运行步骤、测试命令、代码阅读地图、已完成项和限制。
+- 新增 `docs/code-walkthrough.md`：按主流程、仿真、CFAR、CBF/MUSIC、log-Mel＋MLP、数据导出、前端和测试逐模块讲解，并说明修改与真实数据接入方法。
+- 新增 `docs/presentation-script.md`：5 分钟代码讲解、90 秒网页操作顺序、8 个常见追问及演示前检查清单。
+- `run_pipeline.py` 终端字段由“置信度”改为“模型得分”；算法逻辑未改。复跑仍输出 ship 1.00–3.00 s／60.9°、human 4.50–4.52 s／119.8°、fish 6.11–6.13 s／250.2°，8 项 unittest 全部通过，`git diff --check` 通过。
+- 公开前审计了全部跟踪文件、敏感名称和常见凭据模式，未发现敏感内容；`node_modules`、`dist`、缓存和测试临时产物未进入仓库。保留约 14.5 MiB 的 `models/mlp_classifier.pkl`，README 已注明 pickle 只可从可信来源加载及其再生成命令。
+- 远程验证：GitHub API 已读取根目录、README、代码导读和讲解稿；公开页面无需登录即可看到 Public 标识、README、演示链接和完整运行步骤。公开网页仍为 https://fz6snaqu3vhym.ok.kimi.link ，本地更新不会自动同步网页。
+
+**下次从哪开始**
+1. 按讲解稿录制 1–2 分钟演示，先讲仿真边界，再按检测→测向→分类→告警切换展示。
+2. 让一名未参与开发的组员从 GitHub 全新克隆并按 README 运行，记录是否还有环境或说明缺口。
+3. 中期报告和 PPT 可引用公开仓库、网页、截图和测试记录，但仍须明确“尚未实测”。
+
+---
+
 ## 2026-11-21（补充）· 可视化工作台已公开发布
 
 - 公开地址：https://fz6snaqu3vhym.ok.kimi.link
