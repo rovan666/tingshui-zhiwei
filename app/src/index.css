@@ -1,0 +1,59 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Primitive palette */
+  --ink-950: oklch(0.145 0.025 263);
+  --ink-900: oklch(0.19 0.03 257);
+  --ink-850: oklch(0.235 0.035 255);
+  --ink-700: oklch(0.3 0.04 250);
+  --cyan-400: oklch(0.83 0.13 210);
+  --cyan-300: oklch(0.88 0.11 205);
+  --mint-400: oklch(0.8 0.14 160);
+  --amber-400: oklch(0.85 0.14 85);
+  --red-400: oklch(0.75 0.15 20);
+  --slate-100: oklch(0.93 0.015 240);
+  --slate-300: oklch(0.81 0.025 240);
+  --slate-500: oklch(0.67 0.03 245);
+
+  /* Semantic tokens */
+  --surface-page: var(--ink-950);
+  --surface-panel: var(--ink-900);
+  --surface-raised: var(--ink-850);
+  --line: var(--ink-700);
+  --line-strong: oklch(0.35 0.045 250);
+  --text-primary: var(--slate-100);
+  --text-secondary: var(--slate-300);
+  --text-muted: var(--slate-500);
+  --signal-cyan: var(--cyan-400);
+  --signal-cyan-bright: var(--cyan-300);
+  --signal-mint: var(--mint-400);
+  --signal-amber: var(--amber-400);
+  --signal-red: var(--red-400);
+
+  /* Component tokens */
+  --font-body: "Segoe UI", "PingFang SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+  --font-data: "Cascadia Mono", "JetBrains Mono", "SFMono-Regular", "Microsoft YaHei", monospace;
+  color: var(--text-primary);
+  background: var(--surface-page);
+  font-family: var(--font-body);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+* { box-sizing: border-box; }
+html { min-width: 320px; background: var(--surface-page); }
+body { margin: 0; min-width: 320px; min-height: 100dvh; font-size: 16px; line-height: 1.6; }
+button, input, select, textarea { font: inherit; }
+button, a, input { -webkit-tap-highlight-color: transparent; }
+button { border: 0; border-radius: 0; cursor: pointer; }
+button:focus-visible, a:focus-visible, input:focus-visible {
+  outline: 2px solid var(--signal-cyan);
+  outline-offset: 3px;
+}
+button:disabled { cursor: not-allowed; }
+::selection { color: var(--surface-page); background: var(--signal-cyan); }
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--surface-page); }
+::-webkit-scrollbar-thumb { background: var(--line-strong); }

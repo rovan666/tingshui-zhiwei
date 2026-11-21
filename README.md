@@ -35,7 +35,8 @@
 │   ├── detect/          # 异常检测
 │   ├── doa/             # 方位估计
 │   ├── classify/        # 目标分类
-│   └── viz/             # 可视化
+│   └── viz/             # 可视化数据导出
+├── app/                 # React + TypeScript 可视化工作台
 ├── figures/             # 产出的图（按天归档）
 └── data/                # 仿真数据 / 公开数据集
 ```
@@ -45,11 +46,22 @@
 ```bash
 pip install -r requirements.txt
 python run_demo_d1.py    # Day-1：圆阵仿真 + CBF 方位估计
+python run_pipeline.py   # 检测 → 定位 → 分类完整链路
+```
+
+可视化工作台：
+
+```bash
+python -m src.viz.export_demo  # 从真实流水线输出导出页面数据
+cd app
+npm install
+npm run dev
 ```
 
 ## 里程碑
 
 - [x] Day 1：四元圆阵信号仿真 + CBF 方位谱（2026-11-16）
-- [ ] Week 1：检测 + MUSIC + 规则分类链路打通，录屏
-- [ ] Week 2：硬件 BOM V1 + 数据接口规范 + 可视化界面
+- [x] Week 1：检测 + MUSIC + MLP 分类链路打通（2026-11-20）
+- [x] 可视化工作台与桌面/移动端截图（2026-11-21）
+- [ ] 硬件 BOM V1 + 数据接口规范 + 1–2 分钟操作录屏
 - [ ] Week 3：中期报告 + 答辩 PPT

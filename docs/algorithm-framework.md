@@ -70,11 +70,12 @@
 - 模型：log-Mel(40) + sklearn MLP(128)；CNN 留作后续升级，不再作为当前完成项表述
 - 验收图：混淆矩阵 + 四类 log-Mel 特征图；测试准确率 96.2%（仿真测试集）
 
-### viz —— 可视化（⬜ 待做）
-- 文件：`src/viz/app.py`（Streamlit）
-- 四个区：实时波形 / 时频谱 / 方位极坐标图 / 告警表（时间、方位、类型、置信度）
-- 输入：完整流水线跑完一段仿真数据的结果
-- 验收：录屏 1–2 分钟（OBS）
+### viz —— 可视化（✅ 交互页面已完成，录屏待做）
+- 文件：`src/viz/export_demo.py`（真实结果导出）、`app/`（React + TypeScript 工作台）
+- 五个区：四通道波形包络 / CFAR 检测裕量 / CBF 方位极坐标谱 / log-Mel 与四类模型得分 / 告警表
+- 输入：`python -m src.viz.export_demo` 从完整流水线生成的 `app/public/demo-data.json`，不在前端伪造结果
+- 交互：播放、暂停、时间拖动、1/2/4 倍速、通道开关、告警联动与数据下载
+- 验收：3 项 Playwright 测试通过，控制台无错误、无 404；桌面与移动端截图位于 `figures/day4/`；1–2 分钟 OBS 录屏待做
 
 ### pipeline —— 主控串联（✅ 已完成，仿真验证）
 - 文件：`run_pipeline.py`
@@ -91,9 +92,10 @@
 - [x] 检测率/虚警率-SNR 曲线（`run_demo_cfar.py`）
 - [x] 分类混淆矩阵（`run_demo_classify.py`）
 - [ ] 方位-时间记录图 BTR（sim 移动声源 + doa）
-- [ ] 可视化平台截图/录屏（viz）
+- [x] 可视化平台桌面/移动端截图（`figures/day4/`）
+- [ ] 可视化平台 1–2 分钟操作录屏（OBS）
 
 ## 5. 开发顺序
 
-detect、classify(MLP)、pipeline 已完成；下一步为数据接口规范与 viz，再做 BTR 扩展。
+detect、classify(MLP)、pipeline 与 viz 页面已完成；下一步为数据接口规范和演示录屏，再做 BTR 扩展。
 时间不够时从后往前砍；detect + doa + 对比图是保底。

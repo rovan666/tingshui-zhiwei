@@ -1,0 +1,8 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+app/node_modules/
+app/dist/
+.DS_Store
+app/test-results/
+app/playwright-report/
