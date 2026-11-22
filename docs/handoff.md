@@ -5,6 +5,28 @@
 
 ---
 
+## 2026-11-23（Gitee 发布）· 新方案代码已同步到 Gitee
+
+**做了什么**
+
+- 在 Gitee 创建公开仓库 `rovan666/tingshui-zhiwei`，名称为“听水知微”，未用 README 或许可证初始化，直接接收现有完整 Git 历史。
+- 新增本地远程 `gitee`：`https://gitee.com/rovan666/tingshui-zhiwei.git`；GitHub 继续保留为 `origin`，两边互不替代。
+- 已将当前 `main` 推送到 Gitee，代码版本与 GitHub 的 `bd8e111` 一致。公开入口：https://gitee.com/rovan666/tingshui-zhiwei 。
+
+**真实验证与边界**
+
+- `git ls-remote gitee refs/heads/main` 返回 `bd8e111c3f5b33f34bcdf7f1e2ad419296b0f1b6`，确认不是只创建空仓库。
+- 本次仅做仓库创建和代码同步，没有修改算法，因此没有重复训练或声称新增指标。
+- 后续同一提交需要同步两边时执行 `git push origin main` 和 `git push gitee main`；若本机证书吊销检查导致推送失败，沿用单次 `http.schannelCheckRevoke=false` 参数，不修改全局配置。
+
+**下次入口**
+
+1. 让组员分别从 GitHub／Gitee 克隆并运行 README 的基线命令，记录跨电脑复现问题。
+2. 准备三套严格分组的 NPZ，先跑一轮训练冒烟和智能权重回放，再启动正式训练。
+3. 每次工作结束继续在顶部追加交接，并同步两个远程仓库。
+
+---
+
 ## 2026-11-22（代码发布）· 16 通道新方案已推送 GitHub 并完成远程核对
 
 **做了什么**
