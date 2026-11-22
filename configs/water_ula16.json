@@ -1,0 +1,30 @@
+{
+  "config_id": "water_ula16_v1",
+  "medium": "water",
+  "array": {
+    "n_channels": 16,
+    "spacing_m": 0.05,
+    "reference_channel": 7,
+    "fs": 100000,
+    "sound_speed": 1500.0
+  },
+  "field": {
+    "length_m": 4.0,
+    "width_m": 3.0,
+    "angle_min_deg": -60.0,
+    "angle_max_deg": 60.0,
+    "angle_step_deg": 1.0,
+    "range_min_m": 0.5,
+    "range_step_m": 0.25
+  },
+  "features": {
+    "n_fft": 2048,
+    "hop": 512,
+    "n_mels": 128,
+    "fmin": 1000.0,
+    "fmax": 6000.0,
+    "window_samples": 100000,
+    "update_samples": 25000,
+    "n_doa_bands": 8
+  }
+}

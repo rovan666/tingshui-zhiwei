@@ -1,210 +1,134 @@
 # 听水·知微
 
-**基于四元水听器阵列的水声信号检测、测向、分类与可视化仿真系统**
+**16 通道均匀线阵水声异常检测、近场测向、事件分类与连续回放系统**
 
-大学生创新训练项目（2026.05—2027.05）· 国防科技大学
+本仓库当前以团队《中期初步方案》为唯一主线：同步 16 通道输入，100 kHz 采样，1 秒分析窗、250 ms 更新；智能链路为 **OS-SCL 异常检测 → 学习式宽带空间聚焦与测向 → SSL＋TinySwin 事件分类**。CFAR、等权 CBF、MUSIC 和 log-Mel 逻辑回归仅作为可运行对照基线。
 
-> **当前阶段：算法链路仿真验证。** 仓库中的场景、训练数据和实验结果均由程序生成，尚未接入真实水听器、公开水声数据集或无人船硬件，不能当作真实水域实测结论。
+> 当前完成的是代码实现、专项测试和固定仿真演示。尚未完成三阶段 25 轮全量训练、真实水声实录验收、无人船硬件联调，不能宣称方案指标已经达标。
 
-## 先看演示
+## 快速运行
 
-- **公开网页：** https://fz6snaqu3vhym.ok.kimi.link
-- **代码导读：** [docs/code-walkthrough.md](docs/code-walkthrough.md)
-- **答辩讲解稿：** [docs/presentation-script.md](docs/presentation-script.md)
-- **进度与验证记录：** [docs/handoff.md](docs/handoff.md)
-
-网页无需登录，可直接切换三段告警，查看四通道波形、CFAR 检测、CBF 方位谱、log-Mel 特征和分类模型得分。网页是固定仿真场景的交互回放，不是实时采集系统；本地代码更新后需要重新发布，网页不会自动更新。
-
-![听水·知微可视化工作台](figures/day4/workbench.png)
-
-## 这套程序做什么
-
-输入一段四通道水声波形，程序依次回答三个问题：
-
-1. **有没有异常声音？** 用频谱谱线 CFAR 与宽带能量 CFAR 找出候选事件。
-2. **声音从哪个方向来？** 用四元均匀圆阵和 CBF 扫描 0—360° 方位；另提供 MUSIC 对比实验。
-3. **声音更像哪一类？** 提取 log-Mel 时频特征，用 MLP 区分船舶、人员拍水、鱼类活动和背景噪声。
-
-最后把真实运行结果导出为 JSON，由 React 工作台联动展示。
-
-```text
-仿真声源 / 未来的真实采集
-          │  x: (4, N)，fs = 96 kHz
-          ▼
-   双通道 CA-CFAR 检测
-          │  告警起止时间、检测统计量
-          ▼
-   以告警为中心截取 1 s 分析窗
-          │
-          ├──────────────► CBF 四通道测向
-          │
-          └──────────────► log-Mel + MLP 单通道分类
-                                      │
-                                      ▼
-                           JSON 导出 + 可视化告警
-```
-
-## 环境与克隆
-
-已在 **Python 3.12、Node.js 24、Windows** 环境验证。其他版本未逐一验证；Python 依赖见 `requirements.txt`，前端准确依赖版本由 `app/package-lock.json` 锁定。
+环境：Windows、Python 3.12。依赖见 `requirements.txt`。
 
 ```bash
-git clone https://github.com/rovan666/tingshui-zhiwei.git
-cd tingshui-zhiwei
 python -m venv .venv
+.venv/Scripts/python -m pip install -r requirements.txt
 ```
 
-激活虚拟环境：
-
-```powershell
-# Windows PowerShell
-.venv\Scripts\Activate.ps1
-
-# Windows CMD
-.venv\Scripts\activate.bat
-
-# macOS / Linux
-source .venv/bin/activate
-```
-
-安装 Python 依赖：
+在仓库根目录运行新方案基线演示：
 
 ```bash
-python -m pip install -r requirements.txt
+.venv/Scripts/python run_pipeline.py --demo --method baseline
 ```
 
-## 运行完整算法链路
+该命令真实生成 16 通道仿真波形，依次执行 CFAR、近场等权 CBF 和 ch7 log-Mel 逻辑回归，并输出：
+
+- `outputs/ula16_demo/baseline_results.json`：逐会话、逐告警原始结果；
+- `outputs/ula16_demo/baseline_overview.png`：参考通道波形和 CBF 方位谱，明确标注“仿真数据”。
+
+当前固定演示结果如下，数值仅用于说明代码真实运行，不是性能验收：
+
+| 会话 | 设定类别 | 设定方位 | CBF 方位 | 基线预测 | 未校准模型得分 |
+|---|---|---:|---:|---|---:|
+| sim_A | A | −25° | −25° | A | 0.984 |
+| sim_B | B | 5° | 6° | B | 0.699 |
+| sim_C | C | 30° | 30° | **B（误判）** | 0.797 |
+
+保留这次误判是为了如实暴露基线局限，不能用挑选后的结果代替测试集评估。
+
+## 智能模式
+
+智能模式必须同时提供三份由训练入口生成的权重：
 
 ```bash
-python run_pipeline.py
+.venv/Scripts/python run_pipeline.py --demo --method intelligent \
+  --detector-model models/ula16/os_scl.pt \
+  --focus-model models/ula16/learned_focus.pt \
+  --classifier-model models/ula16/tiny_swin.pt
 ```
 
-固定随机种子为 11。当前场景共 8 秒，包含三段仿真事件；终端会打印检测时间、估计方位、类别和模型得分。
+缺少任何权重、归一化统计或门限都会明确报错，**不会用随机模型或基线静默替代智能结果**。当前仓库尚未生成这三份正式权重，因此智能端到端路径已编码和做接口测试，但尚未用正式权重跑仿真回放。
 
-| 告警 | 时间 | 类型 | 估计方位 | 场景设定方位 |
-|---|---|---|---:|---:|
-| A-01 | 1.00—3.00 s | ship | 60.9° | 60° |
-| A-02 | 4.50—4.52 s | human | 119.8° | 120° |
-| A-03 | 6.11—6.13 s | fish | 250.2° | 250° |
-
-这些数字只说明当前固定仿真场景的输出可复现，不代表对任意水域、目标或阵列都具有相同精度。
-
-运行 8 项 Python 回归测试：
+### 串行训练
 
 ```bash
-python -m unittest discover -s tests -v
+.venv/Scripts/python train_all.py \
+  --detection-data data/detection_train.npz \
+  --focus-data data/focus_train.npz \
+  --classifier-data data/classifier_train.npz \
+  --output-dir models/ula16 \
+  --epochs 25
 ```
 
-## 启动可视化工作台
+训练固定 CPU 单线程、批大小 8，每个阶段最多 25 轮，顺序为检测 → 测向 → 分类；分类阶段先自监督预训练，再监督微调并用验证集选择未知拒识阈值。每完成一个阶段就更新 `training_manifest.json`，记录数据与权重哈希、实际训练轮数和验证选模信息。
 
-先在**仓库根目录**重新导出算法结果，再安装和启动前端：
+NPZ 输入契约：
+
+| 数据文件 | 必需字段 |
+|---|---|
+| detection | `train_x/train_y/val_x/val_y`、`feature_mean/feature_std`、`tau_on/tau_off` |
+| focus | 训练/验证协方差、频带谱、有效掩码和角度，`grid_angles`、`angle_indices_json`、`background_power`、`peak_ratio_threshold` |
+| classifier | `train_x/train_y/val_x/val_y/unknown_x`、`feature_mean/feature_std` |
+
+分类特征形状为 `[N,1,128,193]`。测向协方差形状为 `[N,8,16,16]`，频带谱为 `[N,8,P]`。测试集不得出现在训练、阈值标定或模型选择中。
+
+## 连续回放与评估
+
+`src/pipeline.py` 以 `session_id / seq / event_id` 串联每 250 ms 的推理结果：
+
+- 最近 3 窗至少 2 窗超过开启阈值才触发；
+- 连续 3 窗低于关闭阈值才结束；
+- 两秒回溯缓存只写入非重叠的新样本；
+- 采集异常、序号断点或新会话会清空门控、回溯和分类暂存；
+- 事件期间对检测分最高的 3 个窗做分类概率平均，关闭时冻结最终结果；
+- 无有效频点或峰值比不足时返回“方位不确定”，不强制输出角度；
+- 低置信度返回“未知”，不强制分到 A/B/C。
+
+`src/evaluate.py` 分开统计仿真与实录，输出事件召回、漏报、额外误报、背景误报/分钟、角度 MAE/P90、角度覆盖率与拒判数、宏 F1、未知误接受和触发延迟。
+
+## PyQt5 界面
 
 ```bash
-python -m src.viz.export_demo
-cd app
-npm ci
-npm run dev
+.venv/Scripts/python -m src.ui.pyqt_app
 ```
 
-打开终端中 Vite 给出的本地地址。默认端口为 3000；也可指定：
+或让基线演示结束后打开界面：
 
 ```bash
-npm run dev -- --host 127.0.0.1 --port 7100
+.venv/Scripts/python run_pipeline.py --demo --method baseline --ui
 ```
 
-前端检查：
+界面显示 ch7 波形、事件状态、方位射线、类别与失效原因。Windows 下 Qt5 可能因中文绝对插件路径阻塞，本项目在仓库根目录运行时自动使用 ASCII 相对插件路径；不要从其他工作目录启动。
+
+## 测试
 
 ```bash
-npm run lint
-npm run build
+.venv/Scripts/python -m unittest discover -s tests -v
 ```
 
-如需运行 3 项 Playwright 界面测试，先让开发服务器运行在 `127.0.0.1:7100`，再在 `app/` 的另一个终端执行：
+当前本地结果为 **51 项全部通过**。测试覆盖配置与 193 帧 STFT、PCM16 会话存取、分数延时无回绕、18/6/6 母素材分组、近场 CBF/MUSIC、峰值比拒判、OS-SCL 一轮真实训练、学习式频带加权一轮真实训练、TinySwin 前向与 NT-Xent 反传、未知拒识、事件门控、非重叠回溯、评估、主入口和 PyQt5 offscreen 界面。
 
-```bash
-npx playwright install chromium
-npm run test:ui
-```
+## 代码地图
 
-界面测试会更新 `figures/day4/` 中的桌面和移动端截图。
-
-## 分模块实验
-
-以下命令都从仓库根目录运行：
-
-| 命令 | 内容 | 主要输出 |
+| 模块 | 文件 | 职责 |
 |---|---|---|
-| `python run_demo_d1.py` | 四元圆阵仿真与 CBF 方位谱 | `figures/day1/` |
-| `python run_demo_music.py` | 0 dB / −10 dB 下 CBF 与 MUSIC 对比 | `figures/day2/cbf_vs_music.png` |
-| `python run_demo_cfar.py` | CFAR 检测率与多口径虚警统计 | `figures/day3/cfar_*.png` |
-| `python run_demo_classify.py` | 重新训练 MLP、混淆矩阵与 log-Mel 图 | `figures/day3/classify_*.png`、`models/mlp_classifier.pkl` |
-| `python run_pipeline.py` | 检测 → 测向 → 分类完整链路 | 终端告警 |
-| `python -m src.viz.export_demo` | 导出页面使用的真实仿真输出 | `app/public/demo-data.json` |
+| 配置 | `src/config.py`、`configs/*_ula16.json` | 水中/空气独立参数、阵列与特征契约 |
+| 仿真 | `sim/abc_sources.py`、`sim/backgrounds.py`、`sim/ula_sim.py` | A/B/C、8 类背景、球面波直达与一阶反射 |
+| 数据 | `src/data/sessions.py`、`src/data/splits.py` | 多通道 WAV/JSON、哈希、按母素材防泄漏划分 |
+| 特征 | `src/features/logmel.py` | 16 通道 STFT、128×193 log-Mel、冻结训练归一化 |
+| 检测 | `src/detect/os_scl.py`、`event_gate.py` | OS-SCL、原型分数、双阈值事件状态机 |
+| 测向 | `src/doa/nearfield.py`、`learned_focus.py`、`focus.py` | CBF/MUSIC、频带权重、方向聚焦与拒判 |
+| 分类 | `src/classify/ssl.py`、`tiny_swin.py` | 掩码重建＋NT-Xent、TinySwin、top-3 事件平均 |
+| 主控 | `src/pipeline.py`、`run_pipeline.py` | 连续推理、显式模型加载、唯一 CLI |
+| 评估 | `src/evaluate.py` | 事件匹配和仿真/实录独立指标 |
+| 界面 | `src/ui/pyqt_app.py` | 单屏事件展示，不参与算法计算 |
 
-重新训练会覆盖现有模型，并可能改变后续告警得分；修改模型前建议先创建 Git 分支。
+更详细的接口见 `docs/algorithm-framework.md`，算法说明见 `docs/ula16-algorithm.md`，真实进度与未完成项见 `docs/handoff.md`。
 
-> **安全提示：** `models/mlp_classifier.pkl` 是 Python pickle 文件。pickle 只能加载可信来源，不要运行来历不明的模型文件。当前文件由本仓库的 `run_demo_classify.py` 生成，保留它是为了让克隆者无需先训练就能运行完整链路。
+## 当前边界
 
-## 代码阅读地图
-
-| 顺序 | 文件 | 需要看懂的问题 |
-|---:|---|---|
-| 1 | `run_pipeline.py` | 各模块怎样串联，数据形状怎样变化 |
-| 2 | `sim/uca_sim.py` | 阵元坐标、传播时延和四通道信号怎样产生 |
-| 3 | `sim/sources.py` | 船舶、拍水、鱼类和背景信号怎样模拟 |
-| 4 | `src/detect/cfar.py` | 为什么要谱线＋能量双通道，0 dB 判决线是什么 |
-| 5 | `src/doa/cbf.py` | 怎样通过补偿时延和扫描角度估计方向 |
-| 6 | `src/doa/music.py` | 信号子空间、噪声子空间和谱峰的关系 |
-| 7 | `src/classify/features.py` | 波形怎样变成 40 维 log-Mel 时频图 |
-| 8 | `src/classify/mlp.py` | 数据集、训练、推理和模型得分怎样产生 |
-| 9 | `src/viz/export_demo.py` | 算法输出怎样变成网页 JSON，而不是前端手填 |
-| 10 | `app/src/App.tsx` | 告警切换、播放、通道开关和图表怎样联动 |
-| 11 | `tests/test_detection_pipeline.py` | 哪些历史问题已经被自动化测试锁住 |
-
-建议配合 [代码导读](docs/code-walkthrough.md) 按这个顺序阅读。
-
-## 仓库结构
-
-```text
-├── run_pipeline.py          # 完整仿真流水线入口
-├── run_demo_*.py            # 各算法独立实验
-├── sim/                     # 阵列与多类声源仿真
-├── src/
-│   ├── detect/              # 双通道 CA-CFAR
-│   ├── doa/                 # CBF 与 MUSIC
-│   ├── classify/            # log-Mel 与 MLP
-│   └── viz/                 # 可视化数据导出
-├── app/                     # React + TypeScript 工作台
-├── models/                  # 已训练的可信演示模型
-├── tests/                   # Python 回归测试
-├── figures/                 # 实际运行生成的图表与截图
-└── docs/
-    ├── code-walkthrough.md  # 逐模块中文导读
-    ├── presentation-script.md # 代码与网页讲解稿
-    ├── algorithm-framework.md # 接口和全局约定
-    ├── handoff.md           # 真实进度、验证和遗留问题
-    └── hardware/BOM.md      # 硬件物料草稿，尚非采购定稿
-```
-
-## 已完成与不能越界的结论
-
-### 已完成
-
-- 四元圆阵与三类目标／背景噪声仿真。
-- CFAR 检测、CBF 测向、log-Mel＋MLP 分类的端到端链路。
-- CBF 与 MUSIC 的独立对比实验。
-- 8 项 Python 回归测试；前端 lint、构建及 3 项 Playwright 测试。
-- 可公开访问的桌面／移动端可视化演示。
-
-### 当前限制
-
-- **没有真实水域实验。** 分类训练集和测试集来自同一类仿真生成器，96.2% 仅是当前仿真划分的测试结果，不是真实识别准确率。
-- **模型得分不是现实置信度。** MLP 输出未经校准，不能解释成“现实中有 95% 的把握”。
-- **CFAR 结论有适用范围。** 当前帧级虚警率校准只覆盖仿真高斯白噪声；有色噪声、非平稳背景和真实水声环境下必须重新估计门限。
-- **MUSIC 尚未进入主流水线。** 当前端到端演示使用 CBF；多途、相干源、多目标和移动声源仍需扩展。
-- **没有硬件闭环。** 尚不控制电机或无人船；BOM 和结构资料仍需选型、比价、水密与装配验证。
-- **网页不是实时流式系统。** “播放”是固定仿真数据的时间游标回放，不代表正在采集或播放真实音频。
-
-## 协作约定
-
-修改接口前先读 `docs/algorithm-framework.md`；每次工作结束更新 `docs/handoff.md`。所有实验必须真实运行，仿真图必须明确标注，不能把计划项写成已完成项。
+- 没有正式训练权重，没有 25 轮全量训练结果；
+- 固定基线演示存在 C 类误判，不能据此声称分类达标；
+- 没有真实水听器同步采集、实录数据集或水域测试；
+- 没有船体、电机、水密结构或动力控制闭环；
+- 仿真得分未经校准，不等于现实中的概率或置信度。

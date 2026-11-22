@@ -6,3 +6,7 @@ app/dist/
 .DS_Store
 app/test-results/
 app/playwright-report/
+docs/report/node_modules/
+docs/report/qa/
+.venv/
+outputs/
